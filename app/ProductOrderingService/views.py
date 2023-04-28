@@ -67,14 +67,37 @@ class UploadViewSet(APIView):
             # return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
 
-class ProductViewSet(APIView):
+class ProductView(APIView):
     def get(self, request):
 
         queryset = Product.objects.all().values()
-        for q in queryset:
-            print(type(q))
-        print(queryset)
-        return JsonResponse({'Products': list(queryset)})
+
+        return Response({'Products': list(queryset)})
+        # return JsonResponse({'Products': list(queryset)})
+
+    def post(self, request):
+        pass
+
+    def delete(self, request):
+        pass
+
+    def patch(self, request):
+        pass
+
+
+
+
+class CategoryView(APIView):
+    def get(self, request):
+        queryset = Category.objects.all().values()
+        return JsonResponse({'Category': list(queryset)})
+
+
+# class OrderView(APIView):
+#     def get(self, request):
+#         queryset = Category.objects.all().values()
+#         return JsonResponse({'Category': list(queryset)})
+
 
 
 
@@ -86,4 +109,13 @@ class ProductViewSet(APIView):
 #         print(dir(self.queryset))
 #         return JsonResponse({'Status': "ok"})
 
+class ProductInfoView(APIView):
+    def get(self, request):
 
+        queryset = ProductInfo.objects.all().values()
+
+        return Response({'Products': list(queryset)})
+        # return JsonResponse({'Products': list(queryset)})
+
+    def post(self, request):
+        pass
