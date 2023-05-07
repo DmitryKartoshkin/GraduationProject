@@ -1,38 +1,42 @@
-from django.shortcuts import render
 from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from rest_framework.views import APIView
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
-from requests import get
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny
-from rest_framework import filters
-from rest_framework import status
-from rest_framework.generics import CreateAPIView
 
+from rest_framework import filters
+from rest_framework import status, mixins
+from rest_framework.generics import CreateAPIView
 from rest_framework.permissions import AllowAny
 
-from yaml import load as load_yaml, Loader, safe_load
+from yaml import load as load_yaml, Loader
 
-from ProductOrderingService.models import Shop, Category, Product, ProductInfo, Parameter, ProductParameter, Order, User
-from ProductOrderingService.serializers import ProductSerializer, OrderSerializer, UserSerializer, UserRegistrSerializer
-from pathlib import Path
+from ProductOrderingService.models import Shop, Category, Product, ProductInfo, Parameter, ProductParameter, Order, User, OrderItem
+from ProductOrderingService.serializers import ProductSerializer, OrderSerializer, UserSerializer, \
+    UserRegistrSerializer, ShopSerializer, CategorySerializer
+
+
+from ProductOrderingService.permissions import IsOwner
 
 
 class UploadViewSet(APIView):
     """Класс для загрузки информации о товарах в БД интернет-магазина"""
     def post(self, request, *args, **kwargs):
-        # if not request.user.is_authenticated:
-        #     return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-        #
-        # if request.user.type != 'shop':
-        #     return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'shop':
+            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
 
         file = request.data.get("File")
         if file:
-            if Path(file.name).suffix[1:].lower() == 'yaml':
+            validate_file = FileExtensionValidator(['yaml'])
+            try:
+                validate_file(file)
+            except ValidationError as e:
+                return JsonResponse({'Status': False, 'Error': str(e)})
+            else:
                 data = load_yaml(file, Loader=Loader)
                 shop, _ = Shop.objects.get_or_create(name=data['shop'], user_id=request.user.id)
 
@@ -55,38 +59,47 @@ class UploadViewSet(APIView):
                         ProductParameter.objects.create(product_info_id=product_info.id,
                                                         parameter_id=parameter_object.id,
                                                         value=value)
-
                 return JsonResponse({'Status': True})
-            else:
-                raise ValidationError(message={"Error"})
-
-# class ProductView(APIView):
-#     def get(self, request):
-#         queryset = Product.objects.all()
-#         data = ProductSerializer(queryset, many=True).data
-#         return Response(data)
-#
-#         # queryset = Product.objects.all().values()
-#         # return Response({'Products': list(queryset)})
-#         # return JsonResponse({'Products': list(queryset)})
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
 
-class ProductViewSet(ModelViewSet):
+class ShopViewSet(GenericViewSet, mixins.ListModelMixin):
+    """Класс для просмотра списка интернет-магазина"""
+    queryset = Shop.objects.all()
+    serializer_class = ShopSerializer
+
+
+class CategoriesViewSet(GenericViewSet, mixins.ListModelMixin):
+    """Класс для просмотра списка категорий"""
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+
+class ProductViewSet(GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
     """Класс для просмотра продуктов интернет-магазина"""
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
 
 
 class OrderViewSet(ModelViewSet):
-    """Класс для работы с заказами интернет-магазина"""
+    """Класс для работы с заказами интернет-магазина.
+    """
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    # permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsOwner, )
+
+    def get_queryset(self):
+        """Метод вывотит заказы конкретного пользователя исходя из переданного токена"""
+        queryset = self.queryset
+        query_set = queryset.filter(user=self.request.user)
+        return query_set
+
+    def perform_create(self, serializer):
+        """Метод для позволяет автоматически заполнить поля user при создании заказа исходя из переданного токена"""
+        serializer.save(user=self.request.user)
 
 
 class RegistrUserView(CreateAPIView):
-# class RegistrUserView(ModelViewSet):
     """Класс для создания пользователей"""
     queryset = User.objects.all()
     serializer_class = UserRegistrSerializer

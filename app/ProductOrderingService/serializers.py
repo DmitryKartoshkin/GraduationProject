@@ -2,18 +2,19 @@ from rest_framework.serializers import ModelSerializer, CharField, Serializer, E
 
 from ProductOrderingService.models import *
 from rest_framework import serializers
-# from .models import User
+from drf_writable_nested.serializers import WritableNestedModelSerializer
 
 
-# class ShopSerializer(ModelSerializer):
-#     class Meta:
-#         model = Shop
-#         fields = ('name', 'url', 'state')
+class ShopSerializer(ModelSerializer):
+    """Класс-сериализатор для получения списка магазинов"""
+    class Meta:
+        model = Shop
+        fields = ('name', 'url', 'state')
 
-# class CategorySerializer(ModelSerializer):
-#     class Meta:
-#         model = Category
-#         fields = ('name', )
+class CategorySerializer(ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ('id', 'name',)
 
 
 # class ContactSerializer(ModelSerializer):
@@ -34,7 +35,6 @@ from rest_framework import serializers
 class ParameterSerializer(ModelSerializer):
     class Meta:
         model = Parameter
-        # fields = ["id", "name"]
         fields = '__all__'
 
 
@@ -67,8 +67,8 @@ class OrderItemSerializer(ModelSerializer):
         fields = ["id", "quantity", "product_info"]
 
 
-class OrderSerializer(ModelSerializer):
-    ordered_items = OrderItemSerializer(many=True, required=False, read_only=True)
+class OrderSerializer(WritableNestedModelSerializer):
+    ordered_items = OrderItemSerializer(many=True, required=True)
 
     class Meta:
         model = Order
@@ -76,6 +76,34 @@ class OrderSerializer(ModelSerializer):
             "id", "dt", "state", "user", "city", "street", "house", "structure",  "building", "apartment",  "phone",
             "ordered_items"
         ]
+        read_only_fields = ["user"]
+
+    # def create(self, validated_data):
+    #     """Метод для работы с вложенными сериализаторами"""
+    #
+    #     order_data = validated_data.pop('ordered_items')
+    #     order = Order.objects.create(**validated_data)
+    #     for i in order_data:
+    #         OrderItem.objects.create(order=order, **i)
+    #     return order
+
+    # def update(self, instance, validated_data):
+    #
+    #     order_data = validated_data.pop('ordered_items')
+    #     instance.state = validated_data.get('state', instance.state)
+    #     instance.city = validated_data.get('city', instance.city)
+    #     instance.street = validated_data.get('street', instance.street)
+    #     instance.house = validated_data.get('house', instance.house)
+    #     instance.structure = validated_data.get('structure', instance.structure)
+    #     instance.building = validated_data.get('building', instance.building)
+    #     instance.apartment = validated_data.get('apartment', instance.apartment)
+    #     instance.phone = validated_data.get('phone', instance.phone)
+    #     instance.save()
+    #     for i in order_data:
+    #         print(i["quantity"])
+    #         i = OrderItem.objects.update(quantity=i["quantity"])
+    #         instance.ordered_items.add(i)
+    #     return instance
 
 
 class UserSerializer(ModelSerializer):
@@ -123,9 +151,4 @@ class UserRegistrSerializer(ModelSerializer):
         # Возвращаем нового пользователя
         return user
 
-# class PollSerializer(ModelSerializer):
-#     choices = ChoiceSerializer(many=True, read_only=True, required=False)
-#
-#     class Meta:
-#         model = Poll
-#         fields = '__all__'
+

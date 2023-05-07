@@ -68,13 +68,11 @@ class MyUserManager(BaseUserManager):
             raise ValueError('Superuser must have is_superuser=True.')
         return self._create_user(email, username, password, **extra_fields)
 
-        # return self._create_user(email, username, password, is_staff=True, is_superuser=True)
-
 
 class User(AbstractBaseUser, PermissionsMixin):
     """Класс User"""
-    id = models.AutoField(primary_key=True, unique=True)  # Идентификатор
-    email = models.EmailField(max_length=100, unique=True)  # Email
+    id = models.AutoField(primary_key=True, unique=True)
+    email = models.EmailField(max_length=100, unique=True)
     username_validator = UnicodeUsernameValidator()
     username = models.CharField(
         _('username'),
@@ -85,10 +83,10 @@ class User(AbstractBaseUser, PermissionsMixin):
             'unique': _("A user with that username already exists."),
         },
     )  # Логин
-    first_name = models.CharField(verbose_name='Имя', max_length=100, blank=True)  # имя
-    last_name = models.CharField(verbose_name='Фамилия', max_length=100, blank=True)  # фамилия
-    company = models.CharField(verbose_name='Компания', max_length=100, blank=True)  # Название компании
-    position = models.CharField(verbose_name='Должность', max_length=40, blank=True)  # Должность
+    first_name = models.CharField(verbose_name='Имя', max_length=100, blank=True)
+    last_name = models.CharField(verbose_name='Фамилия', max_length=100, blank=True)  #
+    company = models.CharField(verbose_name='Компания', max_length=100, blank=True)
+    position = models.CharField(verbose_name='Должность', max_length=40, blank=True)
     type = models.CharField(verbose_name='Тип пользователя', choices=USER_TYPE_CHOICES, max_length=5, default='buyer')
     is_staff = models.BooleanField(default=False)  # Статус админа
     is_active = models.BooleanField(
@@ -125,6 +123,9 @@ class Shop(models.Model):
 
     def __str__(self):
         return self.name
+
+
+
 
 
 class Category(models.Model):
