@@ -9,74 +9,34 @@ class ShopSerializer(ModelSerializer):
     """Класс-сериализатор для получения списка магазинов"""
     class Meta:
         model = Shop
-        fields = ('name', 'url', 'state')
+        fields = ('id', 'name', 'url', 'state')
+        read_only_fields = ('id',)
+
 
 class CategorySerializer(ModelSerializer):
     class Meta:
         model = Category
         fields = ('id', 'name',)
+        read_only_fields = ('id',)
 
-
-# class ContactSerializer(ModelSerializer):
-#     class Meta:
-#         model = Contact
-#         fields = ('city', 'street', 'house', 'structure', 'building', 'apartment', 'phone')
-#
-# class OrderSerializer(ModelSerializer):
-#     class Meta:
-#         model = Order
-#         fields = ('state', 'contact')
 #
 # class OrderItemSerializer(ModelSerializer):
+#
 #     class Meta:
 #         model = OrderItem
-#         fields = ('quantity',)
-
-class ParameterSerializer(ModelSerializer):
-    class Meta:
-        model = Parameter
-        fields = '__all__'
+#         fields = ["id", "quantity", "product_info"]
 
 
-class ProductParameterSerializer(ModelSerializer):
-    # parameter = ParameterSerializer(many=True, required=False)
-    class Meta:
-        model = ProductParameter
-        fields = ["id", "value", "parameter"]
-
-
-class ProductInfoSerializer(ModelSerializer):
-    product_parameters = ProductParameterSerializer(many=True, required=False)
-
-    class Meta:
-        model = ProductInfo
-        fields = ["id", "external_id", "model", "quantity", "price", "price_rrc", "product_parameters"]
-
-
-class ProductSerializer(ModelSerializer):
-    product_infos = ProductInfoSerializer(many=True, required=False)
-
-    class Meta:
-        model = Product
-        fields = ["id", "name", "product_infos", "category"]
-
-
-class OrderItemSerializer(ModelSerializer):
-    class Meta:
-        model = OrderItem
-        fields = ["id", "quantity", "product_info"]
-
-
-class OrderSerializer(WritableNestedModelSerializer):
-    ordered_items = OrderItemSerializer(many=True, required=True)
-
-    class Meta:
-        model = Order
-        fields = [
-            "id", "dt", "state", "user", "city", "street", "house", "structure",  "building", "apartment",  "phone",
-            "ordered_items"
-        ]
-        read_only_fields = ["user"]
+# class OrderSerializer(WritableNestedModelSerializer):
+#     ordered_items = OrderItemSerializer(many=True, required=True)
+#
+#     class Meta:
+#         model = Order
+#         fields = [
+#             "id", "dt", "state", "user", "city", "street", "house", "structure",  "building", "apartment",  "phone",
+#             "ordered_items"
+#         ]
+#         read_only_fields = ["user"]
 
     # def create(self, validated_data):
     #     """Метод для работы с вложенными сериализаторами"""
@@ -105,6 +65,32 @@ class OrderSerializer(WritableNestedModelSerializer):
     #         instance.ordered_items.add(i)
     #     return instance
 
+# class OrderSerializer(ModelSerializer):
+# class OrderSerializer(WritableNestedModelSerializer):
+#
+#     ordered_items = OrderItemSerializer(many=True, required=True)
+#
+#     class Meta:
+#         model = Order
+#         fields = '__all__'
+#         read_only_fields = ["user"]
+
+    # def create(self, validated_data):
+    #     """Метод для работы с вложенными сериализаторами"""
+    #     order_data = validated_data.pop('ordered_items')
+    #
+    #     order = Order.objects.create(**validated_data)
+    #     for i in order_data:
+    #         OrderItem.objects.create(order=order, **i)
+    #     return order
+
+    # def update(self, instance, validated_data):
+    #     order_data = validated_data.pop('ordered_items')
+    #     ordered_items = instance.ordered_items
+    #     instance.state = validated_data.get('state', instance.state)
+    #     instance.save()
+    #     return instance
+
 
 class UserSerializer(ModelSerializer):
     class Meta:
@@ -113,14 +99,12 @@ class UserSerializer(ModelSerializer):
 
 
 class UserRegistrSerializer(ModelSerializer):
-    """Класс сериализации для модели User"""
+    """Класс сериализации для модели User для регистрации"""
     # Поле для повторения пароля
     password2 = serializers.CharField()
 
     class Meta:
-        # Поля модели которые будем использовать
         model = User
-        # Назначаем поля которые будем использовать
         fields = [
             'email', 'username', 'first_name', 'last_name', 'company', 'position', 'type', 'password', 'password2'
         ]
@@ -150,5 +134,55 @@ class UserRegistrSerializer(ModelSerializer):
         user.save()
         # Возвращаем нового пользователя
         return user
+
+
+class ProductSerializer(ModelSerializer):
+    category = serializers.StringRelatedField()
+
+    class Meta:
+        model = Product
+        fields = ('name', 'category',)
+
+
+class ProductParameterSerializer(serializers.ModelSerializer):
+    parameter = serializers.StringRelatedField()
+
+    class Meta:
+        model = ProductParameter
+        fields = ('parameter', 'value',)
+
+
+class ProductInfoSerializer(ModelSerializer):
+    product = ProductSerializer(read_only=True)
+    product_parameters = ProductParameterSerializer(read_only=True, many=True)
+
+    class Meta:
+        model = ProductInfo
+        fields = ('id', 'model', 'product', 'shop', 'quantity', 'price', 'price_rrc', 'product_parameters',)
+        read_only_fields = ('id',)
+
+
+class OrderItemSerializer(ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = ('id', 'product_info', 'quantity', 'order',)
+        read_only_fields = ('id',)
+        extra_kwargs = {
+            'order': {'write_only': True}
+        }
+
+
+class OrderItemCreateSerializer(OrderItemSerializer):
+    product_info = ProductInfoSerializer(read_only=True)
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    ordered_items = OrderItemCreateSerializer(read_only=True, many=True)
+    # contact = ContactSerializer(read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ('id', 'ordered_items', 'state', 'dt')
+        read_only_fields = ('id',)
 
 

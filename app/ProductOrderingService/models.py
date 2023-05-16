@@ -3,6 +3,8 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django_rest_passwordreset.tokens import get_token_generator
+
 
 STATE_CHOICES = (
     ('basket', 'Статус корзины'),
@@ -21,9 +23,6 @@ USER_TYPE_CHOICES = (
 )
 
 
-# Create your models here.
-
-# Создаем класс менеджера пользователей
 class MyUserManager(BaseUserManager):
     """Класс менеджера для создания модели User"""
     def _create_user(self, email, username, password, **extra_fields):
@@ -50,15 +49,14 @@ class MyUserManager(BaseUserManager):
         return user
 
     def create_user(self, email, username, password, **extra_fields):
-        """Метод для создание обычного пользователя"""
+        """Метод для создания обычного пользователя"""
         # Возвращаем нового созданного пользователя
         extra_fields.setdefault('is_staff', False)
         extra_fields.setdefault('is_superuser', False)
         return self._create_user(email, username, password, **extra_fields)
-        # return self._create_user(email, username, password)
 
     def create_superuser(self, email, username, password, **extra_fields):
-        """Метод для создание админа сайта"""
+        """Метод для создания администратора сайта"""
         # Возвращаем нового созданного админа
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
@@ -114,7 +112,7 @@ class Shop(models.Model):
         null=True,
         on_delete=models.CASCADE
     )
-    state = models.BooleanField(verbose_name='статус получения заказов', default=True)
+    state = models.BooleanField(verbose_name='Статус получения заказов', default=True)
 
     class Meta:
         verbose_name = 'Магазин'
@@ -123,9 +121,6 @@ class Shop(models.Model):
 
     def __str__(self):
         return self.name
-
-
-
 
 
 class Category(models.Model):
@@ -220,24 +215,14 @@ class ProductParameter(models.Model):
     class Meta:
         verbose_name = 'Параметр'
         verbose_name_plural = "Список параметров"
-        constraints = [
-            models.UniqueConstraint(fields=['product_info', 'parameter'], name='unique_product_parameter'),
-        ]
+        constraints = [models.UniqueConstraint(fields=['product_info', 'parameter'], name='unique_product_parameter')]
 
 
-##############################################################################
+class Contact(models.Model):
+    user = models.ForeignKey(User, verbose_name='Пользователь',
+                             related_name='contacts', blank=True,
+                             on_delete=models.CASCADE)
 
-
-class Order(models.Model):
-    user = models.ForeignKey(
-        User,
-        verbose_name='Пользователь',
-        related_name='orders',
-        blank=True,
-        on_delete=models.CASCADE
-    )
-    dt = models.DateTimeField(auto_now_add=True)
-    state = models.CharField(verbose_name='Статус', choices=STATE_CHOICES, max_length=15)
     city = models.CharField(max_length=50, verbose_name='Город')
     street = models.CharField(max_length=100, verbose_name='Улица')
     house = models.CharField(max_length=15, verbose_name='Дом', blank=True)
@@ -247,80 +232,44 @@ class Order(models.Model):
     phone = models.CharField(max_length=20, verbose_name='Телефон')
 
     class Meta:
+        verbose_name = 'Контакты пользователя'
+        verbose_name_plural = "Список контактов пользователя"
+
+    def __str__(self):
+        return f'{self.city} {self.street} {self.house}'
+
+
+class Order(models.Model):
+    user = models.ForeignKey(User, verbose_name='Пользователь', related_name='orders', blank=True,
+                             on_delete=models.CASCADE)
+    dt = models.DateTimeField(auto_now_add=True)
+    state = models.CharField(verbose_name='Статус', choices=STATE_CHOICES, max_length=15)
+    contact = models.ForeignKey(Contact, verbose_name='Контакт', blank=True, null=True, on_delete=models.CASCADE)
+
+    class Meta:
         verbose_name = 'Заказ'
         verbose_name_plural = "Список заказ"
         ordering = ('-dt',)
 
     def __str__(self):
-        return f'{str(self.dt)} {self.city} {self.street} {self.house}'
-
-
-###############################################################################
-
-# class Contact(models.Model):
-#     user = models.ForeignKey(User, verbose_name='Пользователь',
-#                              related_name='contacts', blank=True,
-#                              on_delete=models.CASCADE)
-#
-#     city = models.CharField(max_length=50, verbose_name='Город')
-#     street = models.CharField(max_length=100, verbose_name='Улица')
-#     house = models.CharField(max_length=15, verbose_name='Дом', blank=True)
-#     structure = models.CharField(max_length=15, verbose_name='Корпус', blank=True)
-#     building = models.CharField(max_length=15, verbose_name='Строение', blank=True)
-#     apartment = models.CharField(max_length=15, verbose_name='Квартира', blank=True)
-#     phone = models.CharField(max_length=20, verbose_name='Телефон')
-#
-#     class Meta:
-#         verbose_name = 'Контакты пользователя'
-#         verbose_name_plural = "Список контактов пользователя"
-#
-#     def __str__(self):
-#         return f'{self.city} {self.street} {self.house}'
-
-#
-# class Order(models.Model):
-#     user = models.ForeignKey(User, verbose_name='Пользователь',
-#                              related_name='orders', blank=True,
-#                              on_delete=models.CASCADE)
-#     dt = models.DateTimeField(auto_now_add=True)
-#     state = models.CharField(verbose_name='Статус', choices=STATE_CHOICES, max_length=15)
-#     contact = models.ForeignKey(Contact, verbose_name='Контакт',
-#                                 blank=True, null=True,
-#                                 on_delete=models.CASCADE)
-#
-#     class Meta:
-#         verbose_name = 'Заказ'
-#         verbose_name_plural = "Список заказ"
-#         ordering = ('-dt',)
-#
-#     def __str__(self):
-#         return str(self.dt)
-
-# @property
-# def sum(self):
-#     return self.ordered_items.aggregate(total=Sum("quantity"))["total"]
+        return str(self.dt)
 
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(
-        Order,
-        verbose_name='Заказ',
-        related_name='ordered_items',
-        blank=True,
-        on_delete=models.CASCADE
-    )
-    product_info = models.ForeignKey(
-        ProductInfo,
-        verbose_name='Информация о продукте',
-        related_name='ordered_items',
-        blank=True,
-        on_delete=models.CASCADE
-    )
+    order = models.ForeignKey(Order, verbose_name='Заказ', related_name='ordered_items', blank=True,
+                              on_delete=models.CASCADE)
+
+    product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте', related_name='ordered_items',
+                                     blank=True, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(verbose_name='Количество')
 
     class Meta:
         verbose_name = 'Заказанная позиция'
         verbose_name_plural = "Список заказанных позиций"
-        constraints = [
-            models.UniqueConstraint(fields=['order_id', 'product_info'], name='unique_order_item'),
-        ]
+        # constraints = [
+        #     models.UniqueConstraint(fields=['order_id', 'product_info'], name='unique_order_item'),
+        # ]
+
+
+
+
