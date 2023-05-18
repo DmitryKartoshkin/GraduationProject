@@ -7,25 +7,24 @@ from django.core.exceptions import ValidationError
 from django.forms import model_to_dict
 from rest_framework import filters
 from rest_framework import status, mixins
-from rest_framework.generics import CreateAPIView
-from rest_framework.permissions import AllowAny
 
 from yaml import load as load_yaml, Loader
 
-from ProductOrderingService.models import Shop, Category, Product, ProductInfo, Parameter, ProductParameter, Order, User, OrderItem
-# from ProductOrderingService.serializers import ProductSerializer, OrderSerializer, UserSerializer, \
-#     UserRegistrSerializer, ShopSerializer, CategorySerializer
+from ProductOrderingService.models import Shop, Category, Product, ProductInfo, Parameter, ProductParameter, Order, \
+    User, OrderItem, Contact
 
-from ProductOrderingService.serializers import OrderSerializer, OrderItemSerializer, ShopSerializer, CategorySerializer, \
-    ProductSerializer
-
-
-from ProductOrderingService.permissions import IsOwner
+from ProductOrderingService.serializers import OrderSerializer, OrderItemSerializer, ShopSerializer, \
+    CategorySerializer, ProductSerializer, ContactSerializer
 
 
 class UploadViewSet(APIView):
     """Класс для загрузки информации о товарах в БД интернет-магазина"""
     def post(self, request, *args, **kwargs):
+        """
+        Метод для загрузки каталога товаров по каждому магазину.
+
+        Принимает yaml-файл в качестве аргумента.
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -128,22 +127,22 @@ class ProductViewSet(GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModel
 #             return Response(data)
 
 
-def get(request, *args, **kwargs):
-    """Метод для просмотра списка заказов"""
-    if not request.user.is_authenticated:
-        return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-    basket = Order.objects.filter(
-        user_id=request.user.id, state='basket').prefetch_related(
-        'ordered_items__product_info__product__category',
-        'ordered_items__product_info__product_parameters__parameter').distinct()
-    serializer = OrderSerializer(basket, many=True)
-    return Response(serializer.data)
-
-
 class BasketView(APIView):
+    """Класс для работы со списком заказов"""
+
+    def get(self, request, *args, **kwargs):
+        """Метод для просмотра списка заказов"""
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+        basket = Order.objects.filter(
+            user_id=request.user.id, state='basket').prefetch_related(
+            'ordered_items__product_info__product__category',
+            'ordered_items__product_info__product_parameters__parameter').distinct()
+        serializer = OrderSerializer(basket, many=True)
+        return Response(serializer.data)
 
     def post(self, request, *args, **kwargs):
-        """Метод для создания заказов"""
+        """Метод для создания заказа"""
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
         items_dict = request.data.get('ordered_items')
@@ -162,15 +161,10 @@ class BasketView(APIView):
 
 
 class BasketViewDetail(APIView):
-
-    def get_object(self, pk):
-        try:
-            return Order.objects.get(pk=pk)
-        except Order.DoesNotExist:
-            raise Http404
+    """Класс для работы с карточкой заказа"""
 
     def get(self, request, *args, **kwargs):
-        """Метод для просмотра карточки заказов"""
+        """Метод для просмотра карточки заказов."""
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
         pk = kwargs.get('pk', None)
@@ -185,6 +179,7 @@ class BasketViewDetail(APIView):
             return Response(serializer.data)
 
     def put(self, request, *args, **kwargs):
+        """Метод для обновления или добавления продуктов к заказу."""
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
         pk = kwargs.get('pk', None)
@@ -202,23 +197,124 @@ class BasketViewDetail(APIView):
                     else:
                         return JsonResponse({'Status': False, 'Errors': serializer.errors})
                 else:
-                    items = OrderItem.objects.filter(id=order_item['id']).update(quantity=order_item['quantity'],
-                                                                                 product_info=order_item["product_info"]
-                                                                                 )
+                    items = OrderItem.objects.filter(id=order_item['id']).update(
+                        quantity=order_item['quantity'],
+                        product_info=order_item["product_info"]
+                    )
             return JsonResponse({'Status': True})
 
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
     def delete(self, request, *args, **kwargs):
+        """Метод для удаления заказа."""
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+        pk = kwargs.get('pk', None)
+        if not pk:
+            return JsonResponse({'Error': 'Method DELETE not allowed'}, status=403)
+
+        order = Order.objects.filter(user_id=request.user.id, id=pk)
+        if order.first() is None:
+            return JsonResponse({'Error': 'Method DELETE  is not applicable to the specified object'}, status=403)
+        else:
+            order.delete()
+            return JsonResponse({'Status': True, 'Answer': 'Order delete'}, status=status.HTTP_204_NO_CONTENT)
+
+
+class PartnerOrders(APIView):
+    """Класс для получения заказов поставщиками"""
+
+    def get(self, request, *args, **kwargs):
+        """Метод для получения списка заказов магазина"""
+
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'shop':
+            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
+
+        order = Order.objects.filter(
+            ordered_items__product_info__shop__user_id=request.user.id).exclude(state='basket'). \
+            prefetch_related('ordered_items__product_info__product__category',
+                             'ordered_items__product_info__product_parameters__parameter'). \
+            select_related('contact').distinct()
+        serializer = OrderSerializer(order, many=True)
+        return Response(serializer.data)
+
+
+class ContactAllView(APIView):
+    """Класс для работы с контактами покупателей"""
+
+    def get(self, request, *args, **kwargs):
+        """Класс для просмотра списка контактов"""
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+        contact = Contact.objects.filter(user_id=request.user.id)
+        serializer = ContactSerializer(contact, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        """Класс для создания контакта"""
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if {'city', 'street', 'phone', 'house'}.issubset(request.data):
+            request.data.update({'user': request.user.id})
+            serializer = ContactSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return JsonResponse({'Status': True})
+            else:
+                return JsonResponse({'Status': False, 'Errors': serializer.errors})
+
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+
+
+class ContactView(APIView):
+    """Класс для работы с указанным контактом"""
+
+    def get(self, request, *args, **kwargs):
+        """Метод для просмотра карточки контакта"""
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
         pk = kwargs.get('pk', None)
         if not pk:
             return JsonResponse({'Error': 'Method DELETE not allowed'}, status=403)
         else:
-            order = self.get_object(pk)
-            order.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            contact = Contact.objects.filter(id=pk)
+            serializer = ContactSerializer(contact, many=True)
+            return Response(serializer.data)
 
+    def delete(self, request, *args, **kwargs):
+        """Метод для удаления контакта"""
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+        pk = kwargs.get('pk', None)
+        if not pk:
+            return JsonResponse({'Error': 'Method DELETE not allowed'}, status=403)
 
+        contact = Contact.objects.filter(user_id=request.user.id, id=pk)
+        if contact.first() is None:
+            return JsonResponse({'Error': 'Method DELETE  is not applicable to the specified object'}, status=403)
+        else:
+            contact.delete()
+            return JsonResponse({'Status': True, 'Answer': 'Contact delete'}, status=status.HTTP_204_NO_CONTENT)
 
+    #  редактировать контакт
+    def put(self, request, *args, **kwargs):
+        """Метод для обновления данных в контакте"""
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+        pk = kwargs.get('pk', None)
+
+        if not pk:
+            return JsonResponse({'Error': 'Method DELETE not allowed'}, status=403)
+
+        if 'id' in request.data:
+            contact = Contact.objects.filter(user_id=request.user.id, id=pk).first()
+            serializer = ContactSerializer(contact, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return JsonResponse({'Status': True, 'Answer': serializer.data})
+        else:
+            return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})

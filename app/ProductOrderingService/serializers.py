@@ -5,6 +5,16 @@ from rest_framework import serializers
 from drf_writable_nested.serializers import WritableNestedModelSerializer
 
 
+class ContactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contact
+        fields = ('id', 'city', 'street', 'house', 'structure', 'building', 'apartment', 'user', 'phone')
+        read_only_fields = ('id',)
+        extra_kwargs = {
+            'user': {'write_only': True}
+        }
+
+
 class ShopSerializer(ModelSerializer):
     """Класс-сериализатор для получения списка магазинов"""
     class Meta:
@@ -178,11 +188,11 @@ class OrderItemCreateSerializer(OrderItemSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     ordered_items = OrderItemCreateSerializer(read_only=True, many=True)
-    # contact = ContactSerializer(read_only=True)
+    contact = ContactSerializer(read_only=True)
 
     class Meta:
         model = Order
-        fields = ('id', 'ordered_items', 'state', 'dt')
+        fields = ('id', 'ordered_items', 'state', 'dt', 'contact',)
         read_only_fields = ('id',)
 
 
