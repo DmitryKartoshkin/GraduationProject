@@ -188,11 +188,33 @@ class OrderItemCreateSerializer(OrderItemSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     ordered_items = OrderItemCreateSerializer(read_only=True, many=True)
-    contact = ContactSerializer(read_only=True)
+    # contact = ContactSerializer()
+    state = CharField(default="new")
 
     class Meta:
         model = Order
         fields = ('id', 'ordered_items', 'state', 'dt', 'contact',)
         read_only_fields = ('id',)
+
+    # def update(self, instance, validated_data):
+    #     # contact_data = validated_data.pop('contact')
+    #     # print(contact_data)
+    #     # contact = instance.contact
+    #     # print(contact)
+    #
+    #     instance.contact = validated_data.get('contact', instance.contact)
+    #     instance.state = validated_data.get('state', instance.state)
+    #     instance.save()
+
+        # contact.city = contact_data.get('city', contact.city)
+        # contact.street = contact_data.get('street', contact.street)
+        # contact.house = contact_data.get('house', contact.house)
+        # contact.structure = contact_data.get('structure', contact.structure)
+        # contact.building = contact_data.get('building', contact.building)
+        # contact.apartment = contact_data.get('apartment', contact.apartment)
+        # contact.phone = contact_data.get('phone', contact.phone)
+        # contact.save()
+        # return instance
+
 
 

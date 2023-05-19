@@ -10,6 +10,9 @@ router.register(r'products', ProductViewSet)  # список продуктов
 # router.register(r'basket', BasketViewSet)
 router.register(r'shop', ShopViewSet)  # список магазинов
 router.register(r'category', CategoriesViewSet)  # список категорий
+router.register(r'order', OrderViewSet)  # связки заказа и контакта
+router.register(r'contacts', ContactViewSet)
+
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -27,6 +30,10 @@ urlpatterns = [
     # адреса для работы с контактами
     path('contact/', ContactAllView.as_view(), name='contact'),
     path('contact/<int:pk>/', ContactView.as_view(), name='contact_one'),
+
+    # path('order/', OrderView.as_view(), name='order'),
+
+
 
 
     # path('registr/', RegistrUserView.as_view(), name='registr'),  # регистрация

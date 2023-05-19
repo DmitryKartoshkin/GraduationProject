@@ -16,6 +16,8 @@ from ProductOrderingService.models import Shop, Category, Product, ProductInfo, 
 from ProductOrderingService.serializers import OrderSerializer, OrderItemSerializer, ShopSerializer, \
     CategorySerializer, ProductSerializer, ContactSerializer
 
+from ProductOrderingService.permissions import IsOwner
+
 
 class UploadViewSet(APIView):
     """Класс для загрузки информации о товарах в БД интернет-магазина"""
@@ -318,3 +320,85 @@ class ContactView(APIView):
                 return JsonResponse({'Status': True, 'Answer': serializer.data})
         else:
             return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+
+
+# class OrderView(APIView):
+#     """Класс для получения и размешения заказов пользователями"""
+#     permission_classes = [IsOwner]
+#
+#     def get(self, request, *args, **kwargs):
+#         # if not request.user.is_authenticated:
+#         #     return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+#         order = Order.objects.filter(
+#             user_id=request.user.id).exclude(state='basket').prefetch_related(
+#             'ordered_items__product_info__product__category',
+#             'ordered_items__product_info__product_parameters__parameter').select_related('contact').distinct()
+#
+#         serializer = OrderSerializer(order, many=True)
+#         return Response(serializer.data)
+#
+#
+#
+#     def post(self, request, *args, **kwargs):
+#         """Метод для """
+#         # if not request.user.is_authenticated:
+#         #     return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+#
+#         if {'id', 'contact'}.issubset(request.data):
+#             is_updated = Order.objects.filter(
+#                     user_id=request.user.id, id=request.data['id']).update(
+#                     contact_id=request.data['contact'], state='new')
+#             return JsonResponse({'Status': True})
+#         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+
+
+class OrderViewSet(mixins.RetrieveModelMixin,
+                   mixins.UpdateModelMixin,
+                   mixins.ListModelMixin,
+                   GenericViewSet):
+
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    permission_classes = [IsOwner]
+
+    def get_queryset(self):
+        """Метод вывотит заказы конкретного пользователя исходя из переданного токена"""
+        queryset = self.queryset
+        query_set = queryset.filter(user=self.request.user)
+        return query_set
+
+    def perform_create(self, serializer):
+        """Метод позволяет автоматически заполнить поля user при создании заказа исходя из переданного токена"""
+        serializer.save(user=self.request.user)
+
+    def partial_update(self, request, pk=None):
+        serializer = OrderSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+
+
+class ContactViewSet(ModelViewSet):
+    """Класс для работы с указанным контактом"""
+
+    queryset = Contact.objects.all()
+    serializer_class = ContactSerializer
+    permission_classes = [IsOwner]
+
+    def get_queryset(self):
+        """Метод вывотит заказы конкретного пользователя исходя из переданного токена"""
+        queryset = self.queryset
+        query_set = queryset.filter(user=self.request.user)
+        return query_set
+
+    def perform_create(self, serializer):
+        """Метод позволяет автоматически заполнить поля user при создании заказа исходя из переданного токена"""
+        serializer.save(user=self.request.user)
+
+
+
+
+
+
