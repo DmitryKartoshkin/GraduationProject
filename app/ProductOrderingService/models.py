@@ -3,7 +3,8 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-from django_rest_passwordreset.tokens import get_token_generator
+
+from django.core.validators import RegexValidator
 
 
 STATE_CHOICES = (
@@ -229,7 +230,9 @@ class Contact(models.Model):
     structure = models.CharField(max_length=15, verbose_name='Корпус', blank=True)
     building = models.CharField(max_length=15, verbose_name='Строение', blank=True)
     apartment = models.CharField(max_length=15, verbose_name='Квартира', blank=True)
-    phone = models.CharField(max_length=20, verbose_name='Телефон')
+    # phone = models.CharField(max_length=20, verbose_name='Телефон')
+    phoneNumberRegex = RegexValidator(regex=r"^\+?1?\d{8,15}$")
+    phone = models.CharField(validators=[phoneNumberRegex], max_length=16, unique=True)
 
     class Meta:
         verbose_name = 'Контакты пользователя'

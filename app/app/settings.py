@@ -160,7 +160,9 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '20/minute',
         'user': '50/minute'
-    }}
+    },
+    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
+}
 
 
 SIMPLE_JWT = {

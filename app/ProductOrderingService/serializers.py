@@ -2,6 +2,7 @@ from rest_framework.serializers import ModelSerializer, CharField, Serializer, E
 
 from ProductOrderingService.models import *
 from rest_framework import serializers
+
 from drf_writable_nested.serializers import WritableNestedModelSerializer
 
 
@@ -163,6 +164,7 @@ class ProductParameterSerializer(serializers.ModelSerializer):
 
 
 class ProductInfoSerializer(ModelSerializer):
+
     product = ProductSerializer(read_only=True)
     product_parameters = ProductParameterSerializer(read_only=True, many=True)
 
@@ -181,15 +183,16 @@ class OrderItemSerializer(ModelSerializer):
             'order': {'write_only': True}
         }
 
-
 class OrderItemCreateSerializer(OrderItemSerializer):
+
     product_info = ProductInfoSerializer(read_only=True)
 
 
 class OrderSerializer(serializers.ModelSerializer):
+
     ordered_items = OrderItemCreateSerializer(read_only=True, many=True)
-    # contact = ContactSerializer()
-    state = CharField(default="new")
+    contact = ContactSerializer()
+    # state = serializers.StringRelatedField(default="new")
 
     class Meta:
         model = Order

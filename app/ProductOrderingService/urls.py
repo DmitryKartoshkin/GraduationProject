@@ -13,23 +13,19 @@ router.register(r'category', CategoriesViewSet)  # список категори
 router.register(r'order', OrderViewSet)  # связки заказа и контакта
 router.register(r'contacts', ContactViewSet)
 
+# router.register(r'test', TestViewSet)
+
 
 urlpatterns = [
     path('', include(router.urls)),
     # адрес для загрузка данных о продуктах из файла
     path('update/', UploadViewSet.as_view(), name='update'),
-    # адреса регистрации, активации и аутентификации с помощью Djoser
-    path('auth/', include('djoser.urls')),
-    path('auth/', include('djoser.urls.authtoken')),
-    path('auth/', include('djoser.urls.jwt')),
     # адреса для работы пользователей с корзиной
     path('basket_order/', BasketView.as_view(), name='basket_order'),
     path('basket_order/<int:pk>/', BasketViewDetail.as_view(), name='basket_order_one'),
     # адреса для работы магазинов со статусом заказа
     path('shop_state/', PartnerOrders.as_view(), name='shop_state'),
-    # адреса для работы с контактами
-    path('contact/', ContactAllView.as_view(), name='contact'),
-    path('contact/<int:pk>/', ContactView.as_view(), name='contact_one'),
+
 
     # path('order/', OrderView.as_view(), name='order'),
 
