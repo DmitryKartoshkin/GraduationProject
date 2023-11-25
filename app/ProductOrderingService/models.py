@@ -230,7 +230,6 @@ class Contact(models.Model):
     structure = models.CharField(max_length=15, verbose_name='Корпус', blank=True)
     building = models.CharField(max_length=15, verbose_name='Строение', blank=True)
     apartment = models.CharField(max_length=15, verbose_name='Квартира', blank=True)
-    # phone = models.CharField(max_length=20, verbose_name='Телефон')
     phoneNumberRegex = RegexValidator(regex=r"^\+?1?\d{8,15}$")
     phone = models.CharField(validators=[phoneNumberRegex], max_length=16, unique=True)
 
@@ -269,10 +268,3 @@ class OrderItem(models.Model):
     class Meta:
         verbose_name = 'Заказанная позиция'
         verbose_name_plural = "Список заказанных позиций"
-        # constraints = [
-        #     models.UniqueConstraint(fields=['order_id', 'product_info'], name='unique_order_item'),
-        # ]
-
-
-
-

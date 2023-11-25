@@ -30,9 +30,6 @@ def test_get_many_shop(client, data_factory):
     assert response.status_code == 200
     assert len(data) == len(shops)
 
-    # for i, s in enumerate(data):
-    #     assert shop['name'] == shops[i].name
-
 
 @pytest.mark.django_db
 def test_get_one_category(client, data_factory):
@@ -79,7 +76,7 @@ def test_get_one_product(client, data_factory):
 
 
 @pytest.mark.django_db
-def test_get_many_category(client, data_factory):
+def test_get_many_product(client, data_factory):
     """Проверка получения списка товаров"""
     # Arrange
     categoryes = data_factory('Category', _quantity=5)
@@ -91,9 +88,46 @@ def test_get_many_category(client, data_factory):
     assert response.status_code == 200
     assert len(data) == len(products)
 
+
+
+
+
+
+@pytest.mark.django_db
+def test_get_contact_many_authenticate(client, data_factory):
+    """Проверка получения списка товаров аутентифицированного пользователя"""
+    # Arrange
+    users = data_factory('ProductOrderingService.User', _quantity=3)
+    contacts = data_factory('Contact', _quantity=3, user_id=2)
+    # Act
+    user = User.objects.get(email=users[1])
+    client.force_authenticate(user=user)
+
+    contact_get = Contact.objects.all()
+    response = client.get(f'/api/v1/contacts/')
+    data = response.json()
+
+    # Assert
+    assert response.status_code == 200
+    assert len(data) == len(contacts)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @pytest.mark.django_db
 def test_get_contact_not_authenticate(client, data_factory):
-    """Проверка получения списка товаров"""
+    """Проверка получения списка товаров не аутентифицированного пользователя"""
     # Arrange
     users = data_factory('ProductOrderingService.User', _quantity=5)
     contacts = data_factory('Contact', _quantity=5, user_id=2)
@@ -104,25 +138,8 @@ def test_get_contact_not_authenticate(client, data_factory):
 
 
 @pytest.mark.django_db
-def test_get_contact_many_authenticate(client, data_factory):
-    """Проверка получения списка товаров"""
-    # Arrange
-    users = data_factory('ProductOrderingService.User', _quantity=5)
-    contacts = data_factory('Contact', _quantity=5, user_id=2)
-    # Act
-    user = User.objects.get(email=users[1])
-    client.force_authenticate(user=user)
-
-    response = client.get(f'/api/v1/contacts/')
-    data = response.json()
-
-    # Assert
-    assert response.status_code == 200
-    assert len(data) == len(contacts)
-
-@pytest.mark.django_db
 def test_get_contact_many_authorization(client, data_factory):
-    """Проверка получения списка товаров"""
+    """Проверка получения списка товаров чужого пользователя"""
     # Arrange
     users = data_factory('ProductOrderingService.User', _quantity=5)
     contacts = data_factory('Contact', _quantity=5, user_id=2)
@@ -136,7 +153,6 @@ def test_get_contact_many_authorization(client, data_factory):
     # Assert
     assert response.status_code == 200
     assert len(data) != len(contacts)
-
 
 
 @pytest.mark.django_db
@@ -162,4 +178,19 @@ def test_get_contact_one(client, data_factory):
     assert len(data['phone']) <= 16
 
 
+@pytest.mark.django_db
+def test_delete_contact_one(client, data_factory):
+    """Проверка получения списка товаров"""
+    # Arrange
+    users = data_factory('ProductOrderingService.User', _quantity=5)
+    contacts = data_factory('Contact', _quantity=5, user_id=2)
+    # Act
+    user = User.objects.get(email=users[1])
+    client.force_authenticate(user=user)
+    contact = Contact.objects.all()
+    response = client.delete(f'/api/v1/contacts/{contact[1].id}/')
+    response_get = client.get(f'/api/v1/contacts/')
+    # Assert
+    assert response.status_code == 204
+    assert len(response_get.json()) == 4
 

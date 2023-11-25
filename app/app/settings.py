@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
-
+from os import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,13 +22,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-^y6lq97e2t#4kduvp*qhl49kr#vc_l3!_p7wlft03$wj104o7k'
-
+# SECRET_KEY = 'django-insecure-^y6lq97e2t#4kduvp*qhl49kr#vc_l3!_p7wlft03$wj104o7k'
+SECRET_KEY = environ.get('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
-
+# DEBUG = True
+DEBUG = int(environ.get('DEBUG', default=0))
+# ALLOWED_HOSTS = []
+ALLOWED_HOSTS = environ.get('ALLOWED_HOSTS').split(' ')
 
 # Application definition
 
@@ -91,18 +91,29 @@ WSGI_APPLICATION = 'app.wsgi.application'
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'graduation_project',
+#         'HOST': '127.0.0.1',
+#         'PORT': '5431',
+#         'USER': 'django_user',
+#         'PASSWORD': 'django_password',
+#
+#     }
+# }
+
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'graduation_project',
-        'HOST': '127.0.0.1',
-        'PORT': '5431',
-        'USER': 'django_user',
-        'PASSWORD': 'django_password',
-
+        'ENGINE': environ.get('POSTGRES_ENGINE', 'django.db.backends.postgresql'),
+        'NAME': environ.get('POSTGRES_DB', BASE_DIR / 'graduation_project'),
+        'USER': environ.get('POSTGRES_USER', 'django_user'),
+        'PASSWORD': environ.get('POSTGRES_PASSWORD', 'django_password'),
+        'HOST': environ.get('POSTGRES_HOST', 'localhost'),
+        'PORT': environ.get('POSTGRES_PORT', '5431'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators

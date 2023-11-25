@@ -11,12 +11,8 @@ from django.forms import model_to_dict
 
 from yaml import load as load_yaml, Loader
 
-from ProductOrderingService.models import Shop, Category, Product, ProductInfo, Parameter, ProductParameter, Order, \
-    User, OrderItem, Contact
-
-from ProductOrderingService.serializers import OrderSerializer, OrderItemSerializer, ShopSerializer, \
-    CategorySerializer, ProductSerializer, ContactSerializer
-
+from ProductOrderingService import models
+from ProductOrderingService import serializers
 from ProductOrderingService.permissions import IsOwner
 
 
@@ -43,64 +39,47 @@ class UploadViewSet(APIView):
                 return JsonResponse({'Status': False, 'Error': str(e)})
             else:
                 data = load_yaml(file, Loader=Loader)
-                shop, _ = Shop.objects.get_or_create(name=data['shop'], user_id=request.user.id)
+                shop, _ = models.Shop.objects.get_or_create(name=data['shop'], user_id=request.user.id)
 
                 for category in data['categories']:
-                    category_object, _ = Category.objects.get_or_create(id=category['id'], name=category['name'])
+                    category_object, _ = models.Category.objects.get_or_create(id=category['id'], name=category['name'])
                     category_object.shops.add(shop.id)
                     category_object.save()
-                ProductInfo.objects.filter(shop_id=shop.id).delete()
+                models.ProductInfo.objects.filter(shop_id=shop.id).delete()
                 for item in data['goods']:
-                    product, _ = Product.objects.get_or_create(name=item['name'], category_id=item['category'])
-                    product_info = ProductInfo.objects.create(product_id=product.id,
-                                                              external_id=item['id'],
-                                                              model=item['model'],
-                                                              price=item['price'],
-                                                              price_rrc=item['price_rrc'],
-                                                              quantity=item['quantity'],
-                                                              shop_id=shop.id)
+                    product, _ = models.Product.objects.get_or_create(name=item['name'], category_id=item['category'])
+                    product_info = models.ProductInfo.objects.create(product_id=product.id,
+                                                                     external_id=item['id'],
+                                                                     model=item['model'],
+                                                                     price=item['price'],
+                                                                     price_rrc=item['price_rrc'],
+                                                                     quantity=item['quantity'],
+                                                                     shop_id=shop.id)
                     for name, value in item['parameters'].items():
-                        parameter_object, _ = Parameter.objects.get_or_create(name=name)
-                        ProductParameter.objects.create(product_info_id=product_info.id,
-                                                        parameter_id=parameter_object.id,
-                                                        value=value)
+                        parameter_object, _ = models.Parameter.objects.get_or_create(name=name)
+                        models.ProductParameter.objects.create(product_info_id=product_info.id,
+                                                               parameter_id=parameter_object.id,
+                                                               value=value)
                 return JsonResponse({'Status': True})
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
 
 class ShopViewSet(GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
     """Класс для просмотра списка интернет-магазина"""
-    queryset = Shop.objects.all()
-    serializer_class = ShopSerializer
+    queryset = models.Shop.objects.all()
+    serializer_class = serializers.ShopSerializer
 
 
 class CategoriesViewSet(GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
     """Класс для просмотра списка категорий"""
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
+    queryset = models.Category.objects.all()
+    serializer_class = serializers.CategorySerializer
 
 
 class ProductViewSet(GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
     """Класс для просмотра продуктов интернет-магазина"""
-    queryset = Product.objects.all()
-    serializer_class = ProductSerializer
-
-# class BasketViewSet(ModelViewSet):
-#     """Класс для работы с заказами интернет-магазина.
-#     """
-#     queryset = Order.objects.all()
-#     serializer_class = OrderSerializer
-#     permission_classes = (IsOwner, )
-#
-#     def get_queryset(self):
-#         """Метод вывотит заказы конкретного пользователя исходя из переданного токена"""
-#         queryset = self.queryset
-#         query_set = queryset.filter(user=self.request.user)
-#         return query_set
-#
-#     def perform_create(self, serializer):
-#         """Метод позволяет автоматически заполнить поля user при создании заказа исходя из переданного токена"""
-#         serializer.save(user=self.request.user)
+    queryset = models.Product.objects.all()
+    serializer_class = serializers.ProductSerializer
 
 
 class BasketView(APIView):
@@ -110,11 +89,11 @@ class BasketView(APIView):
         """Метод для просмотра списка заказов"""
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-        basket = Order.objects.filter(
+        basket = models.Order.objects.filter(
             user_id=request.user.id, state='basket').prefetch_related(
             'ordered_items__product_info__product__category',
             'ordered_items__product_info__product_parameters__parameter').distinct()
-        serializer = OrderSerializer(basket, many=True)
+        serializer = serializers.OrderSerializer(basket, many=True)
         return Response(serializer.data)
 
     def post(self, request, *args, **kwargs):
@@ -123,10 +102,10 @@ class BasketView(APIView):
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
         items_dict = request.data.get('ordered_items')
         if items_dict:
-            basket = Order.objects.create(user_id=request.user.id, state='basket')
+            basket = models.Order.objects.create(user_id=request.user.id, state='basket')
             for order_item in items_dict:
                 order_item.update({'order': basket.id})
-                serializer = OrderItemSerializer(data=order_item)
+                serializer = serializers.OrderItemSerializer(data=order_item)
                 if serializer.is_valid():
                     serializer.save()
                 else:
@@ -147,11 +126,11 @@ class BasketViewDetail(APIView):
         if not pk:
             return JsonResponse({'Error': 'Method DELETE not allowed'}, status=403)
         else:
-            basket = Order.objects.filter(
+            basket = models.Order.objects.filter(
                 user_id=request.user.id, state='basket', id=pk).prefetch_related(
                 'ordered_items__product_info__product__category',
                 'ordered_items__product_info__product_parameters__parameter').distinct()
-            serializer = OrderSerializer(basket, many=True)
+            serializer = serializers.OrderSerializer(basket, many=True)
             return Response(serializer.data)
 
     def put(self, request, *args, **kwargs):
@@ -167,13 +146,13 @@ class BasketViewDetail(APIView):
             for order_item in items_dict:
                 if order_item.get('id') is None:
                     order_item.update(order=pk)
-                    serializer = OrderItemSerializer(data=order_item)
+                    serializer = serializers.OrderItemSerializer(data=order_item)
                     if serializer.is_valid():
                         serializer.save()
                     else:
                         return JsonResponse({'Status': False, 'Errors': serializer.errors})
                 else:
-                    items = OrderItem.objects.filter(id=order_item['id']).update(
+                    items = models.OrderItem.objects.filter(id=order_item['id']).update(
                         quantity=order_item['quantity'],
                         product_info=order_item["product_info"]
                     )
@@ -189,7 +168,7 @@ class BasketViewDetail(APIView):
         if not pk:
             return JsonResponse({'Error': 'Method DELETE not allowed'}, status=403)
 
-        order = Order.objects.filter(user_id=request.user.id, id=pk)
+        order = models.Order.objects.filter(user_id=request.user.id, id=pk)
         if order.first() is None:
             return JsonResponse({'Error': 'Method DELETE  is not applicable to the specified object'}, status=403)
         else:
@@ -209,41 +188,13 @@ class PartnerOrders(APIView):
         if request.user.type != 'shop':
             return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
 
-        order = Order.objects.filter(
+        order = models.Order.objects.filter(
             ordered_items__product_info__shop__user_id=request.user.id).exclude(state='basket'). \
             prefetch_related('ordered_items__product_info__product__category',
                              'ordered_items__product_info__product_parameters__parameter'). \
             select_related('contact').distinct()
-        serializer = OrderSerializer(order, many=True)
+        serializer = serializers.OrderSerializer(order, many=True)
         return Response(serializer.data)
-
-
-# class OrderView(APIView):
-#     """Класс для получения и размешения заказов пользователями"""
-#     permission_classes = [IsOwner]
-#
-#     def get(self, request, *args, **kwargs):
-#         # if not request.user.is_authenticated:
-#         #     return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-#         order = Order.objects.filter(
-#             user_id=request.user.id).exclude(state='basket').prefetch_related(
-#             'ordered_items__product_info__product__category',
-#             'ordered_items__product_info__product_parameters__parameter').select_related('contact').distinct()
-#
-#         serializer = OrderSerializer(order, many=True)
-#         return Response(serializer.data)
-
-#     def post(self, request, *args, **kwargs):
-#         """Метод для """
-#         # if not request.user.is_authenticated:
-#         #     return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-#
-#         if {'id', 'contact'}.issubset(request.data):
-#             is_updated = Order.objects.filter(
-#                     user_id=request.user.id, id=request.data['id']).update(
-#                     contact_id=request.data['contact'], state='new')
-#             return JsonResponse({'Status': True})
-#         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
 
 class OrderViewSet(mixins.RetrieveModelMixin,
@@ -251,8 +202,8 @@ class OrderViewSet(mixins.RetrieveModelMixin,
                    mixins.ListModelMixin,
                    GenericViewSet):
 
-    queryset = Order.objects.all()
-    serializer_class = OrderSerializer
+    queryset = models.Order.objects.all()
+    serializer_class = serializers.OrderSerializer
     permission_classes = [IsOwner]
 
     def get_queryset(self):
@@ -266,7 +217,7 @@ class OrderViewSet(mixins.RetrieveModelMixin,
         serializer.save(user=self.request.user)
 
     def partial_update(self, request, pk=None):
-        serializer = OrderSerializer(request.user, data=request.data, partial=True)
+        serializer = serializers.OrderSerializer(request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
@@ -275,8 +226,8 @@ class OrderViewSet(mixins.RetrieveModelMixin,
 class ContactViewSet(ModelViewSet):
     """Класс для работы с указанным контактом"""
 
-    queryset = Contact.objects.all()
-    serializer_class = ContactSerializer
+    queryset = models.Contact.objects.all()
+    serializer_class = serializers.ContactSerializer
     permission_classes = [IsOwner]
 
     def get_queryset(self):
@@ -288,13 +239,5 @@ class ContactViewSet(ModelViewSet):
     def perform_create(self, serializer):
         """Метод позволяет автоматически заполнить поля user при создании заказа исходя из переданного токена"""
         serializer.save(user=self.request.user)
-
-
-
-
-
-
-
-
 
 
